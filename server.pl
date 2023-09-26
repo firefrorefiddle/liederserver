@@ -139,30 +139,6 @@ get_song_preview(Respond, Text) :-
     latex_song(Path, Pngs),
     call(Respond, div(\disp_pngs(Pngs))).
 
-% TODO remove
-get_song_editor(Respond) :-
-    http_current_request(R),    
-    http_parameters(R, [versionId(VersionIdA, [])]),
-    atom_number(VersionIdA, VersionId),    
-    get_song_editor(Respond, VersionId).
-
-% TODO remove
-get_song_editor(Respond, VersionId) :-
-    once(song_version(_, VersionId, _, Text)),    
-    call(Respond,
-	 div([id="disp_edit"],
-	     [button([value="Edit",
-		      'hx-get'='/get_song_lyrics?versionId='+VersionId,
-		      'hx-target'='#disp_edit',
-		      'hx-swap'='outerHtml'],["Cancel"]),
-	      input([type=textarea,
-		     style="height:50vh;width:50vw",
-		     rows=100,
-		     cols=80,
-		     id="editor",
-		     value=Text],[])])).
-
-
 disp_pngs([]) --> [].
 disp_pngs([Png|Pngs]) --> disp_png(Png), disp_pngs(Pngs).
 
