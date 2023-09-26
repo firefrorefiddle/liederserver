@@ -102,7 +102,11 @@ lyrics_editor(Id, VersionId, Text, true) -->
 			  style="height:80vh;width:50vw;white-space:pre",
 			  rows="20",
 			  cols="80",
-			  id="editor"
+			  id="editor",
+			  name="text",
+			  'hx-get'='/song_preview',
+			  'hx-trigger'='keyup delay:500ms',
+			  'hx-target'='#preview'
 			  ],[Text])])
 	      ])).
 
@@ -114,12 +118,20 @@ disp_lyrics(Id, VersionId, Text) -->
 
 get_song_preview(Respond) :-
     http_current_request(R),    
-    http_parameters(R, [versionId(VersionIdA, [])]),
-    atom_number(VersionIdA, VersionId),    
-    get_song_preview(Respond, VersionId).
+    http_parameters(R, [versionId(VersionIdA, [optional(true)]),
+			text(Text, [optional(true)])
+		       ]),
+    (  nonvar(VersionIdA)
+    -> atom_number(VersionIdA, VersionId),
+       song_version(_, VersionId, _, Text),       
+       get_song_preview(Respond, Text)
+    ; (  nonvar(Text)
+      -> get_song_preview(Respond, Text)
+      ;  http_status_reply(bad_request(missing_parameter(oneof([versionId,text]))))
+      )
+    ).
 
-get_song_preview(Respond, VersionId) :-
-    song_version(_, VersionId, _, Text),
+get_song_preview(Respond, Text) :-
     tmp_file(preview, Path),
     open(Path, write, Stream),
     write(Stream, Text),
