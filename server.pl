@@ -1,6 +1,7 @@
 :- use_module(library(http/http_server)).
 :- use_module(library(http/http_files)).
 :- use_module(library(http/html_write)).
+:- use_module(library(http/js_write)).
 :- use_module(library(arouter)).
 :- use_module(library(base64)).
 :- use_module(library(lists)).
@@ -31,8 +32,8 @@ handle_hx_request(Method, Handler) :-
 
 :- hx_route_get(/, get_songs).
 :- hx_route_get(song_from_db, get_song).
+:- hx_route_get(song, get_song).
 :- hx_route_get(song_preview, get_song_preview).
-:- hx_route_get(edit_song, get_song_editor).
 
 :- http_handler(root(assets/'style.css'), http_reply_file('assets/style.css', []), [id(style_GET)]).
 
@@ -71,18 +72,17 @@ title_attrs(Headers, TitleText) :-
 
 get_song(Respond) :-
     http_current_request(R),
-    http_parameters(R, [id(IdA, [])]),
+    http_parameters(R, [id(IdA, []),edit(Edit, [default(false)])]),
     atom_number(IdA, Id),
-    get_song(Respond, Id).
+    get_song(Respond, Id, Edit).
 
-get_song(Respond, Id) :-
+get_song(Respond, Id, Edit) :-
     song_from_db(Id, Title, _, _),    
     once(song_version(Id, VersionId, _User, Text)),
     call(Respond,
 	 Title,
 	 [ div([class(flex_container)],
-	       [ div([class(flex_child)],
-		     \disp_lyrics(Id, VersionId, Text)),
+	       [ \lyrics_editor(Id, VersionId, Text, Edit),
 		 div([class(flex_child), id(preview),
 		      'hx-get'('/song_preview?id='+Id+'&versionId='+VersionId),
 		      'hx-trigger'('load from:body')]				     
@@ -90,13 +90,27 @@ get_song(Respond, Id) :-
 	       ])
 	 ]).
 
-disp_lyrics(_Id, VersionId, Text) -->    
+lyrics_editor(Id, VersionId, Text, false) -->
+    html(div([class(flex_child)],
+	     \disp_lyrics(Id, VersionId, Text))).
+
+lyrics_editor(Id, VersionId, Text, true) -->
+    html(div([class(flex_child)],
+	     [div([id="disp_edit"],
+		  [a([href='/song?id='+Id+'&versionId='+VersionId],["Cancel"]),		  
+		   textarea([
+			  style="height:80vh;width:50vw;white-space:pre",
+			  rows="20",
+			  cols="80",
+			  id="editor"
+			  ],[Text])])
+	      ])).
+
+
+disp_lyrics(Id, VersionId, Text) -->    
     html(div([id("disp_edit")],
-	     [button([value="Edit",
-		      'hx-get'='/edit_song?versionId='+VersionId,
-		      'hx-target'='#disp_edit',
-		      'hx-swap'='outerHtml'],["Edit"]),		    
-	      pre([], [Text])])).
+	     [a([href='/song?edit=true&id='+Id+'&versionId='+VersionId],["Edit"]),		    
+	      pre([style="height:80vh;width:50vw;white-space:pre"], [Text])])).
 
 get_song_preview(Respond) :-
     http_current_request(R),    
@@ -113,12 +127,14 @@ get_song_preview(Respond, VersionId) :-
     latex_song(Path, Pngs),
     call(Respond, div(\disp_pngs(Pngs))).
 
+% TODO remove
 get_song_editor(Respond) :-
     http_current_request(R),    
     http_parameters(R, [versionId(VersionIdA, [])]),
     atom_number(VersionIdA, VersionId),    
     get_song_editor(Respond, VersionId).
 
+% TODO remove
 get_song_editor(Respond, VersionId) :-
     once(song_version(_, VersionId, _, Text)),    
     call(Respond,
@@ -173,12 +189,12 @@ standard_head(Title, Head) :-
 		    crossorigin("anonymous")],[]),
 	    script([src("https://unpkg.com/htmx.org/dist/ext/sse.js")],[]),
 	    script([src("https://unpkg.com/hyperscript.org@0.9.11")],[]),
-	    link([rel(stylesheet),
-		  href("https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css"),
-		  integrity("sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu"),
-		  crossorigin("anonymous")],[]),
-	    link([rel("stylesheet"), href("https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap-theme.min.css"), integrity("sha384-6pzBo3FDv/PJ8r2KRkGHifhEocL+1X2rVCTTkUfGk7/0pbek5mMa1upzvWbrUbOZ"), crossorigin("anonymous")],[]),
-	    script([src("https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js"), integrity("sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd"), crossorigin("anonymous")],[]),
+%	    link([rel(stylesheet),
+%		  href("https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css"),
+%		  integrity("sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu"),
+%		  crossorigin("anonymous")],[]),
+%	    link([rel("stylesheet"), href("https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap-theme.min.css"), integrity("sha384-6pzBo3FDv/PJ8r2KRkGHifhEocL+1X2rVCTTkUfGk7/0pbek5mMa1upzvWbrUbOZ"), crossorigin("anonymous")],[]),
+%	    script([src("https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js"), integrity("sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd"), crossorigin("anonymous")],[]),
 	    link([rel(stylesheet),href('/assets/style.css')])].
 
 :- dynamic last_request/1.
