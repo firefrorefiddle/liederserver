@@ -1,5 +1,6 @@
 :- use_module(library(http/http_server)).
 :- use_module(library(http/http_files)).
+:- use_module(library(http/http_header)).
 :- use_module(library(http/html_write)).
 :- use_module(library(http/js_write)).
 :- use_module(library(arouter)).
@@ -27,6 +28,12 @@ hx_route_get(Address, Handler, Options) :-
 hx_route_get(Address, Handler) :-
     hx_route_get(Address, Handler, []).
 
+hx_route_post(Address, Handler, Options) :-
+    route_post(Address, handle_hx(Handler), Options).
+
+hx_route_post(Address, Handler) :-
+    hx_route_post(Address, Handler, []).
+
 handle_hx_request(Method, Handler) :-
     call(Handler, Method).
 
@@ -34,6 +41,10 @@ handle_hx_request(Method, Handler) :-
 :- hx_route_get(song_from_db, get_song).
 :- hx_route_get(song, get_song).
 :- hx_route_get(song_preview, get_song_preview).
+:- hx_route_post(save_song, post_save_song).
+
+:- http_handler(root(test_redirect1), test_redirect, []).
+test_redirect(R) :- http_status_reply(see_other(/), current_output, ['HX-Redirect'(/)],303).
 
 :- http_handler(root(assets/'style.css'), http_reply_file('assets/style.css', []), [id(style_GET)]).
 
@@ -72,11 +83,14 @@ title_attrs(Headers, TitleText) :-
 
 get_song(Respond) :-
     http_current_request(R),
-    http_parameters(R, [id(IdA, []),edit(Edit, [default(false)])]),
+    http_parameters(R, [id(IdA, []),
+			versionId(VersionId, [integer, optional(true)]),
+			edit(Edit, [default(false)])
+		       ]),
     atom_number(IdA, Id),
-    get_song(Respond, Id, Edit).
+    get_song(Respond, Id, VersionId, Edit).
 
-get_song(Respond, Id, Edit) :-
+get_song(Respond, Id, VersionId, Edit) :-
     song_from_db(Id, Title, _, _),    
     once(song_version(Id, VersionId, _User, Text)),
     call(Respond,
@@ -97,18 +111,28 @@ lyrics_editor(Id, VersionId, Text, false) -->
 lyrics_editor(Id, VersionId, Text, true) -->
     html(div([class(flex_child)],
 	     [div([id="disp_edit"],
-		  [a([href='/song?id='+Id+'&versionId='+VersionId],["Cancel"]),		  
-		   textarea([
-			  style="height:80vh;width:50vw;white-space:pre",
-			  rows="20",
-			  cols="80",
-			  id="editor",
-			  name="text",
-			  'hx-get'='/song_preview',
-			  'hx-trigger'='keyup delay:500ms',
-			  'hx-target'='#preview'
-			  ],[Text])])
-	      ])).
+		  form([a([href='/song?id='+Id+'&versionId='+VersionId],["Cancel"]),
+			" ",
+			a([href='#',
+			   'hx-post'='/save_song',
+			   'hx-include'='#editor',
+			   'hx-target'='#editor',
+			   'hx-push-url'=true
+			  ],["Save"]),
+			div([id=status],[]),
+			input([type=hidden,
+			       value=VersionId,
+			       name='versionId']),
+			textarea([style="height:80vh;width:50vw;white-space:pre",
+				  rows="20",
+				  cols="80",
+				  id="editor",
+				  name="editor",
+				  'hx-get'='/song_preview',
+				  'hx-trigger'='keyup delay:500ms',
+				  'hx-target'='#preview'
+				 ],[Text])]))
+	     ])).
 
 
 disp_lyrics(Id, VersionId, Text) -->    
@@ -119,7 +143,7 @@ disp_lyrics(Id, VersionId, Text) -->
 get_song_preview(Respond) :-
     http_current_request(R),    
     http_parameters(R, [versionId(VersionIdA, [optional(true)]),
-			text(Text, [optional(true)])
+			editor(Text, [optional(true)])
 		       ]),
     (  nonvar(VersionIdA)
     -> atom_number(VersionIdA, VersionId),
@@ -138,6 +162,20 @@ get_song_preview(Respond, Text) :-
     close(Stream),
     latex_song(Path, Pngs),
     call(Respond, div(\disp_pngs(Pngs))).
+
+post_save_song(_) :-
+    http_current_request(R),    
+    http_parameters(R, [editor(TextA, []),
+			versionId(VersionIdA, [])
+		       ]),
+    atom_number(VersionIdA, VersionId), % TODO declare parameters
+    atom_string(TextA, Text),
+    song_version(Id, VersionId, _, _),
+    add_song_version(Id, VersionId1, unknown, Text),
+    atomic_list_concat(['/song?id=',Id,'&versionId=', VersionId1], RedirectTo),
+    % TODO: rework this part to htmx request with status output
+    http_redirect(see_other,RedirectTo,R).
+    
 
 disp_pngs([]) --> [].
 disp_pngs([Png|Pngs]) --> disp_png(Png), disp_pngs(Pngs).
