@@ -99,8 +99,11 @@ get_song(Respond, Id, VersionId, Edit) :-
 	       [ \lyrics_editor(Id, VersionId, Text, Edit),
 		 div([class(flex_child), id(preview),
 		      'hx-get'('/song_preview?id='+Id+'&versionId='+VersionId),
-		      'hx-trigger'('load from:body')]				     
-		     ,[])
+		      'hx-trigger'('load from:body'),
+		      'hx-target'('#preview-div')
+		     ]			     
+		     ,["X",
+		       div([id('preview-div')],[])])
 	       ])
 	 ]).
 
