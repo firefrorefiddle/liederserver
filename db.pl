@@ -19,6 +19,8 @@
 :- persistent song(id:number, title: atom, author: atom).
 :- persistent song_version(songId: number, id: number, user: atom, text: string).
 :- persistent header(id: number, user: atom, key: atom, value: atom).
+:- persistent songbook(id:number, title:atom, user:atom).
+:- persistent songbook_version(songbookId:number, version: atom, songVersions: list).
 
 song_db_attach :- db_attach('songs.db', []).
 
