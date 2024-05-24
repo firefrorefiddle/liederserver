@@ -44,7 +44,7 @@ handle_hx_request(Method, Handler) :-
 :- hx_route_post(save_song, post_save_song).
 
 :- http_handler(root(test_redirect1), test_redirect, []).
-test_redirect(R) :- http_status_reply(see_other(/), current_output, ['HX-Redirect'(/)],303).
+test_redirect(_) :- http_status_reply(see_other(/), current_output, ['HX-Redirect'(/)],303).
 
 :- http_handler(root(assets/'style.css'), http_reply_file('assets/style.css', []), [id(style_GET)]).
 
@@ -55,25 +55,25 @@ get_songs(Respond) :-
     findall(Song-Author-Id-Headers, song_from_db(Id, Song, Author, Headers), Songs),
     sort(Songs, Sorted),
     call(Respond,
-	 "Songs",
-	 div([
-		    input([type(text),placeholder("Filter"),
-			   '_'("
-on keyup		   
+         "Songs",
+         div([class="container mx-auto p-4"],
+             [ input([type="text", placeholder="Filter", class="border p-2 mb-4 w-full", '_'("
+on keyup                  
    if the event's key is 'Escape'
       set my value to ''
       trigger keyup
    else
       show <li/> in #songlist when its textContent.toLowerCase() contains my value.toLowerCase()")]),
-		    
-		    ul([id(songlist)], \song_list(Sorted))
-		])).
+               ul([id="songlist", class="list-disc pl-5"],
+                  \song_list(Sorted))
+             ])).
 
 song_list([]) --> [].
 song_list([Title-Author-Id-Headers|Rest]) -->
-    { title_attrs(Headers, TitleText)
-    },
-    html(li(a([title(TitleText), href('/song_from_db?id='+Id)],[Title, " (",Author,")"]))),
+    { title_attrs(Headers, TitleText) },
+    html(li([class="mb-2"],
+            a([title=TitleText, href='/song_from_db?id='+Id, class="text-blue-500 hover:underline"],
+              [Title, " (", Author, ")"]))),
     song_list(Rest).
 
 title_attrs(Headers, TitleText) :-
@@ -212,19 +212,16 @@ reply_html(Title, Content) :-
 
 standard_head(Title, Head) :-
     Head = [title(Title),
-	    script([src="https://code.jquery.com/jquery-3.7.1.slim.min.js", integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8=", crossorigin="anonymous"],[]),
+            meta([charset='UTF-8'], []),
+            meta([name='viewport', content='width=device-width, initial-scale=1.0'], []),
 	    script([src("https://unpkg.com/htmx.org@1.9.2"),
 		    integrity("sha384-L6OqL9pRWyyFU3+/bjdSri+iIphTN/bvYyM37tICVyOJkWZLpP2vGn6VUEXgzg6h"),
 		    crossorigin("anonymous")],[]),
 	    script([src("https://unpkg.com/htmx.org/dist/ext/sse.js")],[]),
-	    script([src("https://unpkg.com/hyperscript.org@0.9.11")],[]),
-	    link([rel(stylesheet),
-		  href("https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css"),
-		  integrity("sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu"),
-		  crossorigin("anonymous")],[]),
-	    link([rel("stylesheet"), href("https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap-theme.min.css"), integrity("sha384-6pzBo3FDv/PJ8r2KRkGHifhEocL+1X2rVCTTkUfGk7/0pbek5mMa1upzvWbrUbOZ"), crossorigin("anonymous")],[]),
-	    script([src("https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js"), integrity("sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd"), crossorigin("anonymous")],[]),
-	    link([rel(stylesheet),href('/assets/style.css')])].
+	    script([src("https://unpkg.com/hyperscript.org@0.9.11")],[]),	    
+            script([src="https://cdn.tailwindcss.com"], [])
+           ].
+
 
 :- dynamic last_request/1.
 
@@ -240,10 +237,11 @@ reply_standard_layout(Head, Title, Body) :-
     http_current_request(R),
     assertz(last_request(R)),
     reply_html_page(Head,
-		    div([id(body),'hx-boost'(true)],
-			[\navbar,
-			 h1([class(page_title)], Title),
-			 div([],Body)])).
+                    div([id=body, class="hx-boost"],
+                        [ \navbar,
+                          h1([class="text-2xl font-bold mb-4"], Title),
+                          div([class="content"], Body)
+                        ])).
 
 navbar -->  html(div([id(navbar),'hx-boost'(true)],
 		     [
