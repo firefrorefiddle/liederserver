@@ -37,7 +37,9 @@ hx_route_post(Address, Handler) :-
 handle_hx_request(Method, Handler) :-
     call(Handler, Method).
 
-:- hx_route_get(/, get_songs).
+:- hx_route_get(/, get_home).
+:- hx_route_get(songs, get_songs).
+:- hx_route_get(songbooks, get_songbooks).
 :- hx_route_get(song_from_db, get_song).
 :- hx_route_get(song, get_song).
 :- hx_route_get(song_preview, get_song_preview).
@@ -50,6 +52,14 @@ test_redirect(_) :- http_status_reply(see_other(/), current_output, ['HX-Redirec
 
 run :- song_db_attach,
        http_server(handle_request, [port(3333)]).
+
+get_home(Respond) :-
+    call(Respond,
+         "Home",
+         div([class="container mx-auto p-4"],
+             [ "Songbook"
+             ])).
+
 
 get_songs(Respond) :-
     findall(Song-Author-Id-Headers, song_from_db(Id, Song, Author, Headers), Songs),
@@ -76,10 +86,37 @@ song_list([Title-Author-Id-Headers|Rest]) -->
               [Title, " (", Author, ")"]))),
     song_list(Rest).
 
+
 title_attrs(Headers, TitleText) :-
     maplist([Key-Value,Title]>>atomic_list_concat([Key, ": ", Value, "\n"], Title),
 	    Headers,
 	    TitleText).   
+
+get_songbooks(Respond) :-
+    findall(Songbook-Author-Id, songbook(Id, Songbook, Author), Songbooks),
+    sort(Songbooks, Sorted),
+    call(Respond,
+         "Songbooks",
+         div([class="container mx-auto p-4"],
+             [ input([type="text", placeholder="Filter", class="border p-2 mb-4 w-full", '_'("
+on keyup                  
+   if the event's key is 'Escape'
+      set my value to ''
+      trigger keyup
+   else
+      show <li/> in #songbooklist when its textContent.toLowerCase() contains my value.toLowerCase()")]),
+               ul([id="songbooklist", class="list-disc pl-5"],
+                  \songbook_list(Sorted))
+             ])).
+
+
+
+songbook_list(Songs) -->
+    map_list([Title-Author-Id]>>html(li([class="mb-2"],
+					a([title=Title, href='/songbook_from_db?id='+Id, class="text-blue-500 hover:underline"],
+					  [Title, " (", Author, ")"]))),
+	     Songs).
+
 
 get_song(Respond) :-
     http_current_request(R),
@@ -178,7 +215,7 @@ post_save_song(_) :-
     atomic_list_concat(['/song?id=',Id,'&versionId=', VersionId1], RedirectTo),
     % TODO: rework this part to htmx request with status output
     http_redirect(see_other,RedirectTo,R).
-    
+
 
 disp_pngs([]) --> [].
 disp_pngs([Png|Pngs]) --> disp_png(Png), disp_pngs(Pngs).
@@ -237,18 +274,24 @@ reply_standard_layout(Head, Title, Body) :-
     http_current_request(R),
     assertz(last_request(R)),
     reply_html_page(Head,
-                    div([id=body, class="hx-boost"],
+                    div([id=body, 'hx-boost'=true],
                         [ \navbar,
                           h1([class="text-2xl font-bold mb-4"], Title),
                           div([class="content"], Body)
                         ])).
 
-navbar -->  html(div([id(navbar),'hx-boost'(true)],
-		     [
-			 a([href('/')],"Songs"),
-			 a([href('/')],"Songbooks")
-		     ]
-		    )).
+navbar -->  
+    html(div([class="mb-4 border-b border-gray-200"],
+             ul([class="flex flex-wrap -mb-px"],
+                [ li([class="mr-2"], 
+                     a([href="/songs", 
+                        class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300"], 
+                       ["Songs"])),
+                  li([class="mr-2"], 
+                     a([href="/songbooks", 
+                        class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300"], 
+                       ["Songbooks"]))
+                ]))).
 
 
 song_root('/home/mike/src/Liedermappe/lieder').
@@ -409,3 +452,9 @@ dbg_response(Response) :-
     -> print_html(H)
     ;  writeln(Response)
     ).
+
+% Higher-order predicate to map transformation over list
+map_list(_, []) --> [].
+map_list(Transform, [H|T]) -->
+    call(Transform, H),
+    map_list(Transform, T).
