@@ -9,7 +9,13 @@
 	      song_version/4,
 	      add_song_version/4,
 	      header/4,
-	      add_header/5
+	      add_header/5,
+	      songbook/3,
+	      add_songbook/3,
+	      remove_songbook/1,
+	      songbook_version/3,
+	      add_songbook_version/3,
+	      remove_songbook_version/2	      
 	     ]).
 
 :- use_module(library(persistency)).
@@ -73,3 +79,31 @@ song_header(author).
 song_header(reference).
 song_header('extra-index').
 song_header(original).
+
+add_songbook(Id, Title, User) :-
+    (
+	nonvar(Id)
+    -> songbook(Id, Title, User)
+    ; with_mutex(songs_db,
+                 (
+                     get_next_id(Id),
+                     assert_songbook(Id, Title, User)
+                 ))
+    ).
+
+remove_songbook(Id) :-
+    with_mutex(songs_db,
+               retractall_songbook(Id, _, _)).
+
+add_songbook_version(SongbookId, Version, SongVersions) :-
+    (nonvar(SongbookId), ! ; throw("SongbookId should be bound!")),
+    with_mutex(songs_db,
+               (
+                   (var(Version), get_next_id(Version) ; true),
+                   retractall_songbook_version(SongbookId, Version, _),
+                   assert_songbook_version(SongbookId, Version, SongVersions)
+               )).
+
+remove_songbook_version(SongbookId, Version) :-
+    with_mutex(songs_db,
+               retractall_songbook_version(SongbookId, Version, _)).

@@ -2817,3 +2817,9 @@ assert(song_version(10,487,unknown,"title: Abba, Vater\ncopyright: Thankyou Musi
 retractall(next_id(488),1).
 assert(next_id(489)).
 assert(song_version(10,488,unknown,"title: Abba, Vater\ncopyright: Thankyou Music / kingswaysongs.com; für D/A/CH: SCM Hänssler, 71087 Holzgerlingen\nauthor: Dave Bilbrough\ntranslationBy: Elisabeth Aebi\nreference:\nextra-index: Abba, Father\nnumbering: unnumbered\n***\nA     D      E     A     D        E        A   E\nAbba, Vater, deine Lieb' nahm das Herz mir ein.\nA    D      E    A     D        E7         D    A\nOhne deiner Nähe Licht kann ich nicht mehr sein.\nCis    fis       Cis      fis   h               A    E\nVater, halt mich meistens fest, lass mich nie allein.\nA      D        E       A      D      E7      D    A\nDir vertrau ich Tag und Nacht; Vater, ich bin dein.\n\n^Abba, ^Father, ^let me ^be ^yours and ^yours a^lone.^\n^May my ^will for^ever ^be, ^ever^more your ^own.^\n^Never ^let my ^heart grow ^cold, ^never let me ^go,^\n^Abba, ^Father ^let me ^be ^yours and ^yours a^lone.^\n")).
+retractall(next_id(489),1).
+assert(next_id(490)).
+assert(songbook(489,'Jugend',mike)).
+retractall(next_id(490),1).
+assert(next_id(491)).
+assert(songbook(490,'Jugend',mike)).
