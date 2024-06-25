@@ -2823,3 +2823,5 @@ assert(songbook(489,'Jugend',mike)).
 retractall(next_id(490),1).
 assert(next_id(491)).
 assert(songbook(490,'Jugend',mike)).
+assert(songbook_version(489,'1',[])).
+assert(songbook_version(490,'1',[])).

@@ -38,15 +38,19 @@ handle_hx_request(Method, Handler) :-
     call(Handler, Method).
 
 :- hx_route_get(/, get_home).
-:- hx_route_get(songs, get_songs).
-:- hx_route_get(songbooks, get_songbooks).
-:- hx_route_get(song_from_db, get_song).
-:- hx_route_get(song, get_song).
-:- hx_route_get(song_preview, get_song_preview).
-:- hx_route_post(save_song, post_save_song).
+:- hx_route_get(songs/Id/edit, edit_song(Id)).
+:- hx_route_post(songs/Id/save, post_save_song(Id)).
+:- hx_route_get(songs/Id, get_song(Id)).
+:- hx_route_get(songs/list, get_songs).
+:- hx_route_get(songs/new, edit_song(_)).
+:- hx_route_post(songs/new, post_save_song(_)).
+:- hx_route_get(songbooks/Id/edit, edit_songbook(Id)).
+:- hx_route_post(songbooks/Id/save, post_save_songbook(Id)).
+:- hx_route_get(songbooks/Id, get_songbook(Id)).
+:- hx_route_get(songbooks/list, get_songbooks).
+:- hx_route_post(songbooks/new, post_save_songbook(_)).
 
-:- http_handler(root(test_redirect1), test_redirect, []).
-test_redirect(_) :- http_status_reply(see_other(/), current_output, ['HX-Redirect'(/)],303).
+:- hx_route_get(song_preview, get_song_preview).
 
 :- http_handler(root(assets/'style.css'), http_reply_file('assets/style.css', []), [id(style_GET)]).
 
@@ -82,7 +86,7 @@ song_list([]) --> [].
 song_list([Title-Author-Id-Headers|Rest]) -->
     { title_attrs(Headers, TitleText) },
     html(li([class="mb-2"],
-            a([title=TitleText, href='/song_from_db?id='+Id, class="text-blue-500 hover:underline"],
+            a([title=TitleText, href='/songs/'+Id, class="text-blue-500 hover:underline"],
               [Title, " (", Author, ")"]))),
     song_list(Rest).
 
@@ -98,7 +102,13 @@ get_songbooks(Respond) :-
     call(Respond,
          "Songbooks",
          div([class="container mx-auto p-4"],
-             [ input([type="text", placeholder="Filter", class="border p-2 mb-4 w-full", '_'("
+             [
+		 div([
+			    a([href('songbooks/new'),
+				     class('btn p-4 bg-blue-500')],
+				   "New Songbook")
+			]),
+		 input([type="text", placeholder="Filter", class="border p-2 mb-4 w-full", '_'("
 on keyup                  
    if the event's key is 'Escape'
       set my value to ''
@@ -110,22 +120,97 @@ on keyup
              ])).
 
 
+% Main predicate
+songbook_list(SongbookIds) -->
+    map_list(display_songbook_with_versions, SongbookIds).
 
-songbook_list(Songs) -->
-    map_list([Title-Author-Id]>>html(li([class="mb-2"],
-					a([title=Title, href='/songbook_from_db?id='+Id, class="text-blue-500 hover:underline"],
-					  [Title, " (", Author, ")"]))),
-	     Songs).
+% Predicate to display a songbook with its versions
+display_songbook_with_versions(Title-Author-Id) -->
+    {
+        findall(songbook_version(Id, Version, SongVersions), songbook_version(Id, Version, SongVersions), Versions),
+        ( Versions = [] ->
+            % No versions
+            HTML = li([class="mb-2"],
+                      a([title=Title, href='/songbooks/'+Id+'/edit', class="text-blue-500 hover:underline"],
+                        [Title, " (", Author, ")"]))
+        ; Versions = [songbook_version(_, Version, _)] ->
+            % Single version
+            HTML = li([class="mb-2"],
+                      a([title=Title, href='/songbooks/'+Id+'/edit', class="text-blue-500 hover:underline"],
+                        [Title, " (", Author, ", Version: ", Version, ")"]))
+        ; % Multiple versions
+          findall(VHTML, (member(songbook_version(_, Ver, _), Versions),
+                          phrase(html(li(a([title=Title, href='/songbooks/'+Id+'/edit?version='+Ver, class="text-blue-500 hover:underline"],
+                                          ["Version: ", Ver]))), VHTML)), VHTMLs),
+            HTML = li([class="mb-2"],
+                      [Title, " (", Author, ")"],
+                      ul(VHTMLs))
+        )
+    },
+    html(HTML).
 
-
-get_song(Respond) :-
+edit_songbook(IdA, Respond) :-
     http_current_request(R),
-    http_parameters(R, [id(IdA, []),
-			versionId(VersionId, [integer, optional(true)]),
-			edit(Edit, [default(false)])
+    http_parameters(R, [versionId(VersionId, [integer, optional(true)])
 		       ]),
     atom_number(IdA, Id),
-    get_song(Respond, Id, VersionId, Edit).
+    edit_songbook(Respond, Id, VersionId, true).
+
+edit_songbook(Respond, Id, VersionId, Edit) :-
+    songbook_version(Id, VersionId, Songs),
+    call(Respond,
+	 "songbook",
+	 \edit_songbook_form(Id, VersionId, Songs)).
+
+new_songbook(Respond) :-
+    call(Respond,
+	 "songbook",
+	 \edit_songbook_form(_, _, Songs)).
+
+guard(P) :-
+    call(P)
+    -> true
+    ; throw(failed_guard(P)).
+
+
+% Predicate to generate the form
+edit_songbook_form(SongbookId, VersionId, Songs) -->
+    {
+        ( var(SongbookId) ->
+            % Creating a new songbook
+            Title = '', Author = '', Versions = [], Action='/songbooks/new'
+        ; % Editing an existing songbook
+            songbook(SongbookId, Title, Author),
+            findall(songbook_version(SongbookId, Version, SongVersions), songbook_version(SongbookId, Version, SongVersions), Versions),
+	    Action='/songbooks/'+SongbookId+'/save'
+        )
+    },
+    html(form([action(Action), method('POST')],
+              [input([type(submit), value('Save')])
+              ])).
+
+
+% Helper predicate to generate form inputs
+html_form_input(Type, Name, Value) -->
+    html(input([type=Type, name=Name, value=Value])).
+
+html_form_input(Type, Name, Value, Placeholder) -->
+    html(input([type=Type, name=Name, value=Value, placeholder=Placeholder])).
+
+
+get_song(IdA, Respond) :-
+    http_current_request(R),
+    http_parameters(R, [versionId(VersionId, [integer, optional(true)])
+		       ]),
+    atom_number(IdA, Id),
+    get_song(Respond, Id, VersionId, false).
+
+edit_song(IdA, Respond) :-
+    http_current_request(R),
+    http_parameters(R, [versionId(VersionId, [integer, optional(true)])
+		       ]),
+    atom_number(IdA, Id),
+    get_song(Respond, Id, VersionId, true).
 
 get_song(Respond, Id, VersionId, Edit) :-
     song_from_db(Id, Title, _, _),    
@@ -151,10 +236,10 @@ lyrics_editor(Id, VersionId, Text, false) -->
 lyrics_editor(Id, VersionId, Text, true) -->
     html(div([class(flex_child)],
 	     [div([id="disp_edit"],
-		  form([a([href='/song?id='+Id+'&versionId='+VersionId],["Cancel"]),
+		  form([a([href='/songs/'+Id+'?versionId='+VersionId],["Cancel"]),
 			" ",
 			a([href='#',
-			   'hx-post'='/save_song',
+			   'hx-post'='/songs/'+Id+'/save',
 			   'hx-include'='#editor',
 			   'hx-target'='#editor',
 			   'hx-push-url'=true
@@ -177,7 +262,7 @@ lyrics_editor(Id, VersionId, Text, true) -->
 
 disp_lyrics(Id, VersionId, Text) -->    
     html(div([id("disp_edit")],
-	     [a([href='/song?edit=true&id='+Id+'&versionId='+VersionId],["Edit"]),		    
+	     [a([href='/songs/'+Id+'/edit?versionId='+VersionId],["Edit"]),		    
 	      pre([style="height:80vh;width:50vw;white-space:pre"], [Text])])).
 
 get_song_preview(Respond) :-
@@ -284,11 +369,11 @@ navbar -->
     html(div([class="mb-4 border-b border-gray-200"],
              ul([class="flex flex-wrap -mb-px"],
                 [ li([class="mr-2"], 
-                     a([href="/songs", 
+                     a([href="/songs/list", 
                         class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300"], 
                        ["Songs"])),
                   li([class="mr-2"], 
-                     a([href="/songbooks", 
+                     a([href="/songbooks/list", 
                         class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300"], 
                        ["Songbooks"]))
                 ]))).
@@ -458,3 +543,8 @@ map_list(_, []) --> [].
 map_list(Transform, [H|T]) -->
     call(Transform, H),
     map_list(Transform, T).
+
+to_terminal(Title, Html) :-
+    writeln(Title),
+    phrase(html(Html), Out),
+    print_html(Out).
