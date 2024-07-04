@@ -64,6 +64,9 @@ add_song_version(SongId, Id, User, Text) :-
 		   assert_song_version(SongId, Id, User, Text)
 	       )).
 
+%available_song(_User, SongId, Text) :-
+%add_song_version(    song(
+
 add_header(SongId, VersionId, User, Key, Value) :-
     (nonvar(SongId), ! ; throw("SongId should be bound!")),
     ( song_header(Key)

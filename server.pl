@@ -48,6 +48,7 @@ handle_hx_request(Method, Handler) :-
 :- hx_route_post(songbooks/Id/save, post_save_songbook(Id)).
 :- hx_route_get(songbooks/Id, get_songbook(Id)).
 :- hx_route_get(songbooks/list, get_songbooks).
+:- hx_route_get(songbooks/new, edit_songbook(_)).
 :- hx_route_post(songbooks/new, post_save_songbook(_)).
 
 :- hx_route_get(song_preview, get_song_preview).
@@ -104,7 +105,7 @@ get_songbooks(Respond) :-
          div([class="container mx-auto p-4"],
              [
 		 div([
-			    a([href('songbooks/new'),
+			    a([href('/songbooks/new'),
 				     class('btn p-4 bg-blue-500')],
 				   "New Songbook")
 			]),
@@ -122,7 +123,7 @@ on keyup
 
 % Main predicate
 songbook_list(SongbookIds) -->
-    map_list(display_songbook_with_versions, SongbookIds).
+    map_dcg(display_songbook_with_versions, SongbookIds).
 
 % Predicate to display a songbook with its versions
 display_songbook_with_versions(Title-Author-Id) -->
@@ -153,7 +154,7 @@ edit_songbook(IdA, Respond) :-
     http_current_request(R),
     http_parameters(R, [versionId(VersionId, [integer, optional(true)])
 		       ]),
-    atom_number(IdA, Id),
+    (nonvar(IdA) -> atom_number(IdA, Id) ; true),
     edit_songbook(Respond, Id, VersionId, true).
 
 edit_songbook(Respond, Id, VersionId, Edit) :-
@@ -186,8 +187,16 @@ edit_songbook_form(SongbookId, VersionId, Songs) -->
         )
     },
     html(form([action(Action), method('POST')],
-              [input([type(submit), value('Save')])
-              ])).
+              [
+		  select([name(song_versions)],
+			 [
+			     \each(SongVersions,
+				  [V]>>html(div(V)))
+			 ]
+			),
+		  input([type(submit), value('Save')])
+              ])
+	).
 
 
 % Helper predicate to generate form inputs
@@ -539,10 +548,12 @@ dbg_response(Response) :-
     ).
 
 % Higher-order predicate to map transformation over list
-map_list(_, []) --> [].
-map_list(Transform, [H|T]) -->
+map_dcg(_, []) --> [].
+map_dcg(Transform, [H|T]) -->
     call(Transform, H),
-    map_list(Transform, T).
+    map_dcg(Transform, T).
+
+each(List, Dcg) --> map_dcg(Dcg, List).
 
 to_terminal(Title, Html) :-
     writeln(Title),
