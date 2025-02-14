@@ -2825,3 +2825,8 @@ assert(next_id(491)).
 assert(songbook(490,'Jugend',mike)).
 assert(songbook_version(489,'1',[])).
 assert(songbook_version(490,'1',[])).
+assert(user(firefrorefiddle,'Michael','Michael','Michael')).
+assert(user(firefrorefiddle,'Michael','Michael','Michael')).
+assert(user(firefrorefiddle,'mikehartl17@gmail.com','Hartl','Michael')).
+assert(user(matin,'a@b.com','Rothauer','Martn')).
+assert(user(aaa,'a@b.com','Rothauer','Martn')).

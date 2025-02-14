@@ -1,3 +1,5 @@
+% -*- mode: prolog -*-
+
 :- use_module(db).
 :- use_module(library(clpfd)).
 

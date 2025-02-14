@@ -1,3 +1,5 @@
+% -*- mode: prolog -*-
+
 :- module(db,[
 	      song_db_attach/0,
 	      user/4,
@@ -22,6 +24,7 @@
 
 :- persistent next_id(number).
 :- persistent user(username: atom, email: atom, last_name: atom, first_name: atom).
+:- persistent user_password(username: atom, hash: atom, salt: atom).
 :- persistent song(id:number, title: atom, author: atom).
 :- persistent song_version(songId: number, id: number, user: atom, text: string).
 :- persistent header(id: number, user: atom, key: atom, value: atom).
